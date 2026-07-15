@@ -1,0 +1,25 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables — NEVER commit real secrets
+.env
+.env.local
+.env.production
+
+# Local uploads (use Cloudinary in production)
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
