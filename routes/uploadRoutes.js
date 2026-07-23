@@ -9,19 +9,26 @@ router.post('/', auth, upload.single('file'), (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
-    
+
     // Construct the file URL dynamically from the current request host
     const host = req.get('host');
     const protocol = req.protocol;
     const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
-    
-    res.json({ 
+
+    res.json({
       message: 'File uploaded successfully',
       url: fileUrl,
       filename: req.file.filename
     });
+    // } catch (err) {
+    //   res.status(500).json({ message: err.message });
+    // }
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("UPLOAD ERROR:", err);
+    res.status(500).json({
+      message: err.message,
+      stack: err.stack
+    });
   }
 });
 
