@@ -3,7 +3,6 @@ const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
 const mongoSanitize = require('express-mongo-sanitize');
-const xss = require('xss-clean');
 
 const uploadDir = path.join(__dirname, 'uploads');
 
@@ -48,7 +47,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(mongoSanitize());
-app.use(xss());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded media
 
 // Database Connection
