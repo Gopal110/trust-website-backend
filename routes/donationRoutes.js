@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const donationController = require('../controllers/donationController');
 const auth = require('../middleware/auth');
-const { donationValidation } = require('../validation/donationValidator');
+const donationValidation = require('../validation/donationValidator');
 const { validationResult } = require('express-validator');
 
 // Public route to submit donation details after payment with validation
