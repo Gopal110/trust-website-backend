@@ -1,5 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const helmet = require('helmet');
+const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
 
 const uploadDir = path.join(__dirname, 'uploads');
 
@@ -38,10 +42,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+app.use(helmet());
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('uploads')); // Static folder for media
+app.use(mongoSanitize());
+app.use(xss());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded media
 
 // Database Connection
 async function connectDB() {
