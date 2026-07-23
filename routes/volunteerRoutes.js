@@ -3,7 +3,7 @@ const router = express.Router();
 const Volunteer = require('../models/Volunteer');
 const { getAll, getOne, updateOne, deleteOne } = require('../controllers/crudController');
 const auth = require('../middleware/auth');
-const { volunteerValidation } = require('../validation/volunteerValidator');
+const volunteerValidation = require('../validation/volunteerValidator');
 const { validationResult } = require('express-validator');
 
 // Public form: map frontend field names (fullName, mobile, interests) to model fields (name, phone, skills)
