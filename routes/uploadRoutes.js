@@ -12,7 +12,10 @@ router.post('/', auth, upload.single('file'), (req, res) => {
 
     // Construct the file URL dynamically from the current request host
     const host = req.get('host');
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    let protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    if (protocol && protocol.includes(',')) {
+      protocol = protocol.split(',')[0].trim();
+    }
     const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
 
     res.json({

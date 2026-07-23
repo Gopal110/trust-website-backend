@@ -131,7 +131,10 @@ app.get('/', (req, res) => {
 // Error Handling Middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong on the server' });
+  res.status(500).json({ 
+    error: 'Something went wrong on the server',
+    message: err.message || 'Internal Server Error'
+  });
 });
 
 app.listen(PORT, () => {
