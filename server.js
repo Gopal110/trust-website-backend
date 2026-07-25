@@ -76,7 +76,7 @@ const corsOptions = {
 app.use(helmet());
 app.use(compression());
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Pre-flight for all routes
+app.options('/{*path}', cors(corsOptions)); // Pre-flight for all routes (Express 5 syntax)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Express 5 compatible mongoSanitize middleware (avoids assigning to getter-only req.query)
