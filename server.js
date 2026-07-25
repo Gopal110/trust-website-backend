@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
 
 const uploadDir = path.join(__dirname, 'uploads');
 
@@ -78,33 +79,13 @@ app.use(cors(corsOptions));
 app.options('/{*path}', cors(corsOptions)); // Pre-flight for all routes (Express 5 syntax)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ─── MongoDB Injection Sanitizer ─────────────────────────────────────────────
-// Recursively removes keys starting with '$' or containing '.' from objects.
-// Safe for Express 5: mutates the object in-place, never reassigns req.query.
-function sanitizeObject(obj) {
-  if (!obj || typeof obj !== 'object') return;
-  for (const key of Object.keys(obj)) {
-    if (key.startsWith('$') || key.includes('.')) {
-      delete obj[key];
-    } else {
-      sanitizeObject(obj[key]);
-    }
-  }
-}
-
+// Express 5 compatible mongoSanitize middleware (avoids assigning to getter-only req.query)
 app.use((req, res, next) => {
-  // Sanitize body and params in-place (safe to mutate)
-  if (req.body) sanitizeObject(req.body);
-  if (req.params) sanitizeObject(req.params);
-  // For req.query (getter-only in Express 5): copy, sanitize, then copy keys back
-  if (req.query) {
-    const q = { ...req.query };
-    sanitizeObject(q);
-    Object.keys(req.query).forEach(k => {
-      if (!(k in q)) delete req.query[k];
-    });
-  }
+  ['body', 'params', 'headers', 'query'].forEach((key) => {
+    if (req[key]) {
+      mongoSanitize.sanitize(req[key]);
+    }
+  });
   next();
 });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded media
