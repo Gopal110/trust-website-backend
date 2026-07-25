@@ -1,11 +1,25 @@
 const mongoose = require('mongoose');
 
 const contactSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String },
-  phone: { type: String, required: true },
-  subject: { type: String },
-  message: { type: String, required: true },
+  name: { 
+    type: String, 
+    required: [true, 'Name is required'],
+    trim: true
+  },
+  email: { 
+    type: String,
+    trim: true,
+    lowercase: true,
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please enter a valid email address']
+  },
+  phone: { 
+    type: String, 
+    required: [true, 'Phone number is required'],
+    trim: true,
+    match: [/^\d{10}$/, 'Phone number must be exactly 10 digits']
+  },
+  subject: { type: String, trim: true },
+  message: { type: String, required: [true, 'Message is required'], trim: true },
   status: { type: String, enum: ['New', 'Read', 'Resolved'], default: 'New' }
 }, { timestamps: true });
 

@@ -1,23 +1,26 @@
-// server/validation/contactValidator.js
 const { body } = require('express-validator');
 
 const contactValidation = [
   body('name')
     .trim()
     .notEmpty().withMessage('Name is required')
-    .isLength({ min: 2, max: 80 }).withMessage('Name must be 2-80 characters')
-    .matches(/^[A-Za-z\s]+$/).withMessage('Name can only contain letters and spaces'),
+    .isLength({ min: 2, max: 80 }).withMessage('Name must be 2-80 characters'),
   body('email')
     .optional({ checkFalsy: true })
+    .trim()
     .isEmail().withMessage('Invalid email address')
     .normalizeEmail(),
   body('phone')
     .trim()
     .notEmpty().withMessage('Phone number is required')
-    .isLength({ min: 10, max: 15 }).withMessage('Phone number must be 10-15 digits')
-    .isNumeric().withMessage('Phone number must contain only digits'),
+    .matches(/^\d{10}$/).withMessage('Phone number must be exactly 10 digits'),
+  body('mobile')
+    .optional({ checkFalsy: true })
+    .trim()
+    .matches(/^\d{10}$/).withMessage('Mobile number must be exactly 10 digits'),
   body('subject')
     .optional({ checkFalsy: true })
+    .trim()
     .isLength({ max: 150 }).withMessage('Subject cannot exceed 150 characters'),
   body('message')
     .trim()

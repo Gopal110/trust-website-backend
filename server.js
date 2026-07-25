@@ -11,6 +11,9 @@ if (!fs.existsSync(uploadDir)) {
 }
 const dotenv = require('dotenv');
 dotenv.config(); // MUST be called first so env vars are available to all modules
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'mynameisgopal';
+}
 
 const dns = require('dns');
 try {
@@ -40,13 +43,51 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ─── CORS ────────────────────────────────────────────────────────────────────
+// Allow: Vercel frontend domain(s) + localhost dev
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  // Production Vercel URLs (set FRONTEND_URL env var on Render to override)
+  process.env.FRONTEND_URL,
+  // Also support comma-separated list in ALLOWED_ORIGINS env var
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []),
+].filter(Boolean);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Render health checks)
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      // Allow any *.vercel.app subdomain (preview deployments)
+      /\.vercel\.app$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS: Origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Middleware
 app.use(helmet());
 app.use(compression());
-app.use(cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Pre-flight for all routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(mongoSanitize());
+// Express 5 compatible mongoSanitize middleware (avoids assigning to getter-only req.query)
+app.use((req, res, next) => {
+  ['body', 'params', 'headers', 'query'].forEach((key) => {
+    if (req[key]) {
+      mongoSanitize.sanitize(req[key]);
+    }
+  });
+  next();
+});
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded media
 
 // Database Connection
