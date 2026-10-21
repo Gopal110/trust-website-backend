@@ -33,7 +33,7 @@ async function resetAndSeedAdmin() {
 
     // Connect to MongoDB
     console.log('🔄 Connecting to MongoDB...');
-    await mongoose.connect(dbUri);
+    await mongoose.connect(dbUri, { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000 });
     console.log('✅ Connected to MongoDB');
 
     // Delete all existing users

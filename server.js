@@ -1,28 +1,27 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const helmet = require('helmet');
 const compression = require('compression');
 const mongoSanitize = require('express-mongo-sanitize');
-
-const uploadDir = path.join(__dirname, 'uploads');
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 const dotenv = require('dotenv');
 dotenv.config(); // MUST be called first so env vars are available to all modules
 
-const dns = require('dns');
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
-} catch (e) {
-  // Ignore if custom DNS cannot be set
-}
+
 
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const upload = require('./middleware/upload'); // For media handling
+
+// Ensure local uploads directory exists (guarded for read-only serverless filesystems)
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  try {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  } catch (e) {
+    // In serverless environments (e.g. Vercel), root filesystem is read-only
+  }
+}
 
 // Route Imports
 const bannerRoutes = require('./routes/bannerRoutes');
@@ -40,74 +39,146 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(helmet());
+// Security & Optimization Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 app.use(compression());
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(mongoSanitize());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded media
 
-// Database Connection
-async function connectDB() {
-  let dbUri = process.env.MONGODB_URI;
+// Verified Allowed Origins for CORS
+const allowedOrigins = [
+  'https://shri-shiv-charan-dharmarth-manav-seva-trust.com',
+  'https://www.shri-shiv-charan-dharmarth-manav-seva-trust.com',
+  'https://client-dsvvv.vercel.app',
+  'https://trust-website-frontend.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001'
+];
 
-  const startMemoryServer = async () => {
-    console.log('ℹ️ Attempting In-Memory MongoDB Server fallback...');
-    try {
-      const { MongoMemoryServer } = require('mongodb-memory-server');
-      const mongoServer = await MongoMemoryServer.create({
-        binary: { version: '5.0.26' }
-      });
-      const memUri = mongoServer.getUri();
-      console.log(`✨ In-Memory MongoDB Server started at: ${memUri}`);
-      await mongoose.connect(memUri);
-      console.log('✅ MongoDB connected successfully (In-Memory)');
-    } catch (memErr) {
-      console.error('❌ In-Memory MongoDB unavailable:', memErr.message);
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL.split(',').forEach(url => {
+    const trimmed = url.trim().replace(/\/+$/, '');
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
     }
-  };
-
-  if (!dbUri || dbUri.includes('127.0.0.1') || dbUri.includes('localhost') || dbUri.includes('xxxx')) {
-    await startMemoryServer();
-  } else {
-    try {
-      console.log('🔄 Connecting to MongoDB Atlas...');
-      await mongoose.connect(dbUri, { serverSelectionTimeoutMS: 5000 });
-      console.log('✅ MongoDB connected successfully to Remote DB');
-    } catch (err) {
-      console.error('❌ Remote MongoDB connection error:', err.message);
-      console.log('⚠️ Falling back to local In-Memory MongoDB Server so the app remains functional...');
-      await startMemoryServer();
-    }
-  }
-
-  try {
-    if (mongoose.connection.readyState === 1) {
-      // Auto-create a default admin user if none exists
-      const User = require('./models/User');
-      const adminCount = await User.countDocuments({ role: 'admin' });
-      if (adminCount === 0) {
-        const defaultAdmin = new User({
-          username: 'admin',
-          password: 'adminpassword123',
-          role: 'admin'
-        });
-        await defaultAdmin.save();
-        console.log('🎉 Default Admin User Auto-Created!');
-        console.log('   Username: admin');
-        console.log('   Password: adminpassword123');
-      } else {
-        console.log('👤 Admin user already exists.');
-      }
-    }
-  } catch (err) {
-    console.error('❌ Error initializing default admin user:', err.message);
-  }
+  });
 }
 
-connectDB();
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // Server-to-server, curl, Postman, or same-origin
+  if (allowedOrigins.includes(origin)) return true;
+  // Allow all Vercel deployment and preview URLs
+  if (/^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(origin)) return true;
+  return false;
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // Cache preflight for 24 hours
+};
+
+app.use(cors(corsOptions));
+app.options(/(.*)/, cors(corsOptions));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+// Express 5 compatible mongo sanitization (safely sanitizes body and params without breaking query getter)
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    mongoSanitize.sanitize(req.body);
+  }
+  if (req.params && typeof req.params === 'object') {
+    mongoSanitize.sanitize(req.params);
+  }
+  next();
+});
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded media
+app.use('/uploads', express.static(os.tmpdir())); // Fallback for serverless ephemeral files
+
+// Database Connection Manager (Compatible with Vercel Serverless & standalone Node)
+let cachedConnection = null;
+let connectingPromise = null;
+
+async function connectDB() {
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
+  }
+
+  const dbUri = process.env.MONGODB_URI;
+  if (!dbUri) {
+    throw new Error('MONGODB_URI environment variable is not defined.');
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    cachedConnection = mongoose.connection;
+    return cachedConnection;
+  }
+
+  if (connectingPromise) {
+    return connectingPromise;
+  }
+
+  console.log('🔄 Connecting to MongoDB Atlas...');
+  connectingPromise = mongoose.connect(dbUri, {
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
+    bufferCommands: false
+  }).then(conn => {
+    cachedConnection = conn;
+    connectingPromise = null;
+    console.log('✅ MongoDB connected successfully to database:', mongoose.connection.name || 'trust_db');
+    return cachedConnection;
+  }).catch(err => {
+    connectingPromise = null;
+    console.error('❌ MongoDB Atlas connection error:', err.message);
+    throw err;
+  });
+
+  return connectingPromise;
+}
+
+// Initial connection attempt on cold start
+connectDB().catch(err => {
+  console.error('Initial MongoDB connection deferred:', err.message);
+});
+
+// Middleware to verify database connection before processing API routes
+app.use(async (req, res, next) => {
+  // Allow root health check and OPTIONS preflight requests without DB connection
+  if (req.path === '/' || req.method === 'OPTIONS') {
+    return next();
+  }
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database connection unavailable for request:', req.path);
+    return res.status(503).json({
+      error: 'Database Unavailable',
+      message: 'Database service is currently unavailable. Please verify Atlas connection string and network access.'
+    });
+  }
+});
 
 // API Routes
 app.use('/api/banners', bannerRoutes);
@@ -122,21 +193,51 @@ app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/upload', uploadRoutes);
 
+// Health Check Endpoint
 app.get('/', (req, res) => {
-  res.send('Shri Shivcharan Trust API is active.');
-});
-
-// Error Handling Middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong on the server',
-    message: err.message || 'Internal Server Error'
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  res.status(200).json({
+    status: 'active',
+    service: 'Shri Shivcharan Trust API',
+    database: dbStatus,
+    timestamp: new Date().toISOString()
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+// 404 Handler for undefined API routes
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found', message: `Route ${req.originalUrl} not found` });
 });
+
+// Centralized Error Handling Middleware
+app.use((err, req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && isOriginAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  if (err.message && err.message.startsWith('CORS:')) {
+    return res.status(403).json({
+      error: 'CORS Forbidden',
+      message: err.message
+    });
+  }
+
+  console.error('Unhandled server error:', err.message);
+  res.status(err.status || 500).json({ 
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' 
+      ? 'An internal server error occurred' 
+      : err.message
+  });
+});
+
+// Only listen for connections in standalone/local mode, not under Vercel serverless
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
