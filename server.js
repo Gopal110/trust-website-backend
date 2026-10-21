@@ -6,6 +6,9 @@ const compression = require('compression');
 const mongoSanitize = require('express-mongo-sanitize');
 const dotenv = require('dotenv');
 dotenv.config(); // MUST be called first so env vars are available to all modules
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'mynameisgopal';
+}
 
 
 

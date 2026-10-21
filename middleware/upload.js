@@ -29,21 +29,21 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (
-    file.mimetype.startsWith('image/') ||
-    file.mimetype.startsWith('video/') ||
-    file.mimetype === 'application/pdf'
-  ) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const isMimeAllowed = allowedMimeTypes.includes(file.mimetype);
+  const isExtAllowed = allowedExtensions.includes(ext);
+
+  if (isMimeAllowed && isExtAllowed) {
     cb(null, true);
   } else {
-    cb(new Error('Only images, videos and PDFs are allowed'), false);
+    cb(new Error(`Invalid media type (${ext}). Only images (JPG, PNG, WEBP, GIF), videos (MP4, WEBM, MOV), and PDFs are allowed.`), false);
   }
 };
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100 MB
+    fileSize: 100 * 1024 * 1024 // 100 MB max for video media
   },
   fileFilter
 });

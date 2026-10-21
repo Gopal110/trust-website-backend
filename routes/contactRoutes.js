@@ -14,8 +14,13 @@ router.post('/', contactValidation, (req, res, next) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
+  // Frontend sends 'mobile'; map it to 'phone' so the DB model's required field is satisfied
   if (req.body.mobile && !req.body.phone) {
     req.body.phone = req.body.mobile;
+  }
+  // Also ensure mobile is set if only phone was provided
+  if (req.body.phone && !req.body.mobile) {
+    req.body.mobile = req.body.phone;
   }
   next();
 }, createOne(Contact));
