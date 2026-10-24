@@ -228,17 +228,17 @@ app.use((err, req, res, next) => {
   }
 
   console.error('Unhandled server error:', err.message);
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'production' 
-      ? 'An internal server error occurred' 
+    message: process.env.NODE_ENV === 'production'
+      ? 'An internal server error occurred'
       : err.message
   });
 });
 
-// Only listen for connections in standalone/local mode, not under Vercel serverless
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  app.listen(PORT, () => {
+// Start server on Render or local environment
+if (!process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
   });
 }
