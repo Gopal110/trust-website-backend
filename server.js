@@ -150,6 +150,8 @@ async function connectDB() {
     cachedConnection = conn;
     connectingPromise = null;
     console.log('✅ MongoDB connected successfully to database:', mongoose.connection.name || 'trust_db');
+    // Ensure default admin account is provisioned securely without altering existing collections
+    ensureDefaultAdmin().catch(err => console.error('Admin auto-check notice:', err.message));
     return cachedConnection;
   }).catch(err => {
     connectingPromise = null;
@@ -158,6 +160,34 @@ async function connectDB() {
   });
 
   return connectingPromise;
+}
+
+// Ensure required admin GOPAL_DIXIT exists in the production database
+async function ensureDefaultAdmin() {
+  try {
+    const User = require('./models/User');
+    const targetUsername = 'GOPAL_DIXIT';
+    const targetPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'Dixit766';
+    const targetPhone = '7668473135';
+
+    const existing = await User.findOne({
+      username: { $regex: new RegExp(`^${targetUsername}$`, 'i') }
+    });
+
+    if (!existing) {
+      console.log(`👤 Provisioning admin account "${targetUsername}" in database ${mongoose.connection.name}...`);
+      const newAdmin = new User({
+        username: targetUsername,
+        password: targetPassword,
+        role: 'admin',
+        phone: targetPhone
+      });
+      await newAdmin.save();
+      console.log(`✅ Admin account "${targetUsername}" successfully provisioned.`);
+    }
+  } catch (err) {
+    console.error('Notice on ensureDefaultAdmin:', err.message);
+  }
 }
 
 // Initial connection attempt on cold start

@@ -4,7 +4,14 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, default: 'admin' }
+  role: { type: String, default: 'admin' },
+  phone: { type: String, default: '7668473135' },
+  resetOtpHash: { type: String, default: null },
+  resetOtpExpires: { type: Date, default: null },
+  resetOtpAttempts: { type: Number, default: 0 },
+  lastOtpSentAt: { type: Date, default: null },
+  resetSessionToken: { type: String, default: null },
+  resetSessionExpires: { type: Date, default: null }
 }, { timestamps: true });
 
 // Hash password before saving
