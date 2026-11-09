@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { sendOtpSms } = require('../utils/sms');
+const { sendOtpEmail } = require('../utils/email');
 
 // Helper: Normalize mobile number to 10 digits
 function normalizeMobile(m) {
@@ -115,21 +116,29 @@ router.post('/forgot-password/request-otp', async (req, res) => {
     user.resetSessionExpires = null;
     await user.save();
 
-    // Send OTP via SMS
+    // Attempt sending OTP via SMS
     const smsResult = await sendOtpSms(cleanMobile, otp);
 
+    // Also attempt sending OTP via Email if configured
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'sscdms.trust@gmail.com';
+    let emailResult = { success: false };
     if (!smsResult.success) {
-      // Per prompt instructions: If an SMS gateway is not configured, explain what credentials are required.
-      // Do not simulate successful OTP delivery.
+      emailResult = await sendOtpEmail(adminEmail, otp);
+    }
+
+    if (!smsResult.success && !emailResult.success) {
+      // Per prompt instructions: Explain what credentials are required, do not pretend OTP was sent.
       return res.status(503).json({
-        message: smsResult.message || 'Failed to dispatch OTP SMS. SMS gateway is not configured on Render backend.',
+        message: 'Neither SMS nor Email OTP service is configured on Render backend.',
         gatewayConfigured: false,
-        hint: 'Please configure MSG91_AUTH_KEY or TWILIO credentials in your Render environment variables.'
+        hint: 'Please configure EMAIL_USER and EMAIL_PASS (Gmail App Password) or MSG91_AUTH_KEY / TWILIO credentials in your Render environment variables.'
       });
     }
 
+    const deliveryMethod = smsResult.success ? `mobile ending in ${cleanMobile.slice(-4)}` : `email ${adminEmail}`;
+
     return res.status(200).json({
-      message: `OTP sent successfully to registered mobile number ending with ${cleanMobile.slice(-4)}.`,
+      message: `OTP sent successfully to ${deliveryMethod}.`,
       expiresIn: 300,
       gatewayConfigured: true
     });
