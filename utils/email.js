@@ -66,3 +66,4 @@ async function sendOtpEmail(toEmail, otp) {
 }
 
 module.exports = { sendOtpEmail };
+
