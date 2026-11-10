@@ -103,7 +103,7 @@ router.post('/forgot-password/request-otp', async (req, res) => {
     }
 
     // Generate secure 6-digit OTP (100000 - 999999)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
@@ -129,9 +129,9 @@ router.post('/forgot-password/request-otp', async (req, res) => {
     if (!smsResult.success && !emailResult.success) {
       // Per prompt instructions: Explain what credentials are required, do not pretend OTP was sent.
       return res.status(503).json({
-        message: 'Neither SMS nor Email OTP service is configured on Render backend.',
+        message: 'Neither SMS nor Email OTP service is configured on Render backend. Please configure RESEND_API_KEY and EMAIL_FROM for email OTP.',
         gatewayConfigured: false,
-        hint: 'Please configure EMAIL_USER and EMAIL_PASS (Gmail App Password) or MSG91_AUTH_KEY / TWILIO credentials in your Render environment variables.'
+        hint: 'Please configure RESEND_API_KEY and EMAIL_FROM for Resend email delivery, or MSG91_AUTH_KEY / TWILIO credentials for SMS delivery in your Render environment variables.'
       });
     }
 
