@@ -3,6 +3,21 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+// Allowed MIME types and extensions for uploads
+const allowedMimeTypes = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime', // .mov
+  'application/pdf'
+];
+const allowedExtensions = [
+  '.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.webm', '.mov', '.pdf'
+];
+
 // Determine safe upload directory (local uploads folder or os.tmpdir() in serverless)
 function getUploadDirectory() {
   const localUploadDir = path.join(__dirname, '..', 'uploads');
@@ -18,15 +33,7 @@ function getUploadDirectory() {
   }
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, getUploadDirectory());
-  },
-  filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    cb(null, `${Date.now()}-${safeName}`);
-  }
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
